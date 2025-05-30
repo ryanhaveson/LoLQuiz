@@ -40,8 +40,8 @@ client_secret_*.json
 *.swo 
 /generated/prisma
 
-   # Exclude Data Dragon archive and extracted data
-/public/champion-data/
+# Cached Data Dragon data - can be regenerated from API
+/public/patch-data/
 
 # Next.js
 /.next/

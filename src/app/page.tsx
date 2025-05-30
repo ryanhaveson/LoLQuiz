@@ -19,7 +19,6 @@ function shuffle<T>(array: T[]): T[] {
 // Quiz component
 function QuizChampionIcon({ onExit }: { onExit: () => void }) {
   const [champions, setChampions] = useState<any[]>([]);
-  const [patch, setPatch] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [question, setQuestion] = useState<any | null>(null);
   const [options, setOptions] = useState<string[]>([]);
@@ -30,26 +29,23 @@ function QuizChampionIcon({ onExit }: { onExit: () => void }) {
   // Fetch champion data on mount
   useEffect(() => {
     console.log('Fetching champion data...');
-    fetch('/api/champions')
+    fetch('/patch-data/15.11.1/data/en_US/championFull.json')
       .then(res => res.json())
       .then(data => {
-        console.log('Champion API response:', {
+        console.log('Champion data response:', {
           hasData: !!data,
           hasDataData: !!data?.data,
-          hasDataDataData: !!data?.data?.data,
-          dataDataDataKeys: data?.data?.data ? Object.keys(data.data.data) : [],
-          patch: data?.patch,
-          firstChampion: data?.data?.data ? Object.values(data.data.data)[0] : null
+          dataDataKeys: data?.data ? Object.keys(data.data) : []
         });
 
-        if (!data?.data?.data) {
+        if (!data?.data) {
           console.error('Invalid data structure received:', data);
           setLoading(false);
           return;
         }
 
-        // The data structure is now { data: { data: { [championId]: championData } } }
-        const champList = Object.values(data.data.data);
+        // The data structure is now { data: { [championId]: championData } }
+        const champList = Object.values(data.data);
         console.log('Processed champion list:', {
           length: champList.length,
           firstChampion: typeof champList[0] === 'object' && champList[0] !== null ? {
@@ -61,7 +57,6 @@ function QuizChampionIcon({ onExit }: { onExit: () => void }) {
         });
 
         setChampions(champList);
-        setPatch(data.patch || '');
         setLoading(false);
       })
       .catch(error => {
@@ -124,7 +119,7 @@ function QuizChampionIcon({ onExit }: { onExit: () => void }) {
 
   // Use the patch version from state for the icon URL
   const iconUrl = question?.image?.full
-    ? `/champion-data/15.11.1/img/champion/${question.image.full}`
+    ? `/patch-data/15.11.1/img/champion/${question.image.full}`
     : null;
 
   return (
@@ -155,8 +150,7 @@ function QuizChampionIcon({ onExit }: { onExit: () => void }) {
           question.spells.length !== 4 ||
           question.spells.some((spell: any) => !spell.image || !spell.image.full)
         ) {
-          // eslint-disable-next-line no-console
-          console.error('Champion data issue:', question);
+          console.error('Patch data issue:', question);
         }
         return (
           <div className="mt-6 text-left">
@@ -172,7 +166,7 @@ function QuizChampionIcon({ onExit }: { onExit: () => void }) {
             <div className="mb-2">
               <div className="flex items-center gap-2">
                 <img
-                  src={`/champion-data/15.11.1/img/passive/${question.passive.image.full}`}
+                  src={`/patch-data/15.11.1/img/passive/${question.passive.image.full}`}
                   alt={question.passive.name}
                   className="w-8 h-8"
                 />
@@ -185,7 +179,7 @@ function QuizChampionIcon({ onExit }: { onExit: () => void }) {
               <div className="mb-2" key={spell.id}>
                 <div className="flex items-center gap-2">
                   <img
-                    src={`/champion-data/15.11.1/img/spell/${spell.image.full}`}
+                    src={`/patch-data/15.11.1/img/spell/${spell.image.full}`}
                     alt={spell.name}
                     className="w-8 h-8"
                   />
@@ -216,15 +210,41 @@ function QuizChampionIcon({ onExit }: { onExit: () => void }) {
 }
 
 export default function Home() {
-  // Get the current authentication session and loading status
   const { data: session, status } = useSession();
   const [showQuiz, setShowQuiz] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadMessage, setDownloadMessage] = useState('');
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  // Check download progress
+  useEffect(() => {
+    const checkProgress = async () => {
+      try {
+        const response = await fetch('/api/progress');
+        const data = await response.json();
+        setDownloadProgress(data.progress);
+        setDownloadMessage(data.message);
+        setIsDownloading(data.isDownloading);
+
+        if (data.isDownloading) {
+          // Check again in 1 second if still downloading
+          setTimeout(checkProgress, 1000);
+        }
+      } catch (error) {
+        console.error('Error checking progress:', error);
+      }
+    };
+
+    checkProgress();
+  }, []);
 
   // Show a loading message while authentication status is being determined
   if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <span className="text-lg text-gray-700">Loading...</span>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+        <div className="w-full max-w-md p-8">
+          <div className="text-lg text-gray-700 mb-4">Loading...</div>
+        </div>
       </div>
     );
   }
@@ -237,6 +257,21 @@ export default function Home() {
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
         {/* Welcome message */}
         <h1 className="text-3xl font-bold text-center mb-8">Welcome {username}</h1>
+        {/* Download status */}
+        {isDownloading && (
+          <div className="w-full max-w-md mb-8 p-4 bg-white rounded-lg shadow">
+            <div className="text-lg text-gray-700 mb-2">{downloadMessage}</div>
+            <div className="w-full bg-gray-200 rounded-full h-2.5">
+              <div 
+                className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+                style={{ width: `${downloadProgress}%` }}
+              ></div>
+            </div>
+            <div className="mt-2 text-sm text-gray-500">
+              This may take a few minutes...
+            </div>
+          </div>
+        )}
         {/* Quiz button */}
         {!showQuiz && (
           <button
@@ -268,6 +303,21 @@ export default function Home() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
       {/* App title */}
       <h1 className="text-3xl font-bold mb-10 text-center">LoL Quiz</h1>
+      {/* Download status */}
+      {isDownloading && (
+        <div className="w-full max-w-md mb-8 p-4 bg-white rounded-lg shadow">
+          <div className="text-lg text-gray-700 mb-2">{downloadMessage}</div>
+          <div className="w-full bg-gray-200 rounded-full h-2.5">
+            <div 
+              className="bg-blue-600 h-2.5 rounded-full transition-all duration-300" 
+              style={{ width: `${downloadProgress}%` }}
+            ></div>
+          </div>
+          <div className="mt-2 text-sm text-gray-500">
+            This may take a few minutes...
+          </div>
+        </div>
+      )}
       {/* Authentication buttons */}
       <div className="w-full max-w-xs flex flex-col gap-4">
         {/* Sign in with Google button */}

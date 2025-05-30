@@ -3,18 +3,18 @@ import fs from 'fs';
 import path from 'path';
 
 // Helper to get the path to the data directory and files
-const dataDir = path.resolve(process.cwd(), 'data');
-const championsFile = path.join(dataDir, 'champions.json');
+const dataDir = path.resolve(process.cwd(), 'public/patch-data/15.11.1/data/en_US');
+const patchFile = path.join(dataDir, 'champions.json');
 
 export async function POST() {
   try {
-    // Check if the champions file exists
-    if (!fs.existsSync(championsFile)) {
-      throw new Error('Champion data file not found');
+    // Check if the file exists
+    if (!fs.existsSync(patchFile)) {
+      throw new Error('Patch data file not found');
     }
 
-    // Read the current champion data
-    const rawData = JSON.parse(fs.readFileSync(championsFile, 'utf-8'));
+    // Read the current patch data
+    const rawData = JSON.parse(fs.readFileSync(patchFile, 'utf-8'));
 
     // Return success response
     return NextResponse.json({

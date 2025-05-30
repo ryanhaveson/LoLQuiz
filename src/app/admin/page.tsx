@@ -53,30 +53,30 @@ export default function AdminPage() {
     }
   };
 
-  // Manually trigger champion data re-fetch
-  const handleRefetchChampions = async () => {
+  // Manually trigger patch data re-fetch
+  const handleRefetchPatchData = async () => {
     setRefetching(true);
     setRefetchMsg('');
     try {
-      const res = await fetch('/api/admin/refetch-champions', { method: 'POST' });
-      if (!res.ok) throw new Error('Failed to re-fetch champion data');
-      setRefetchMsg('Champion data re-fetched successfully!');
+      const res = await fetch('/api/admin/refetch-patch-data', { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to re-fetch patch data');
+      setRefetchMsg('Patch data re-fetched successfully!');
     } catch {
-      setRefetchMsg('Failed to re-fetch champion data');
+      setRefetchMsg('Failed to re-fetch patch data');
     } finally {
       setRefetching(false);
     }
   };
 
-  const handleDownloadChampionData = async () => {
+  const handleDownloadPatchData = async () => {
     setLoading(true);
     setMessage(null);
     try {
-      const response = await fetch('/api/champions/download');
+      const response = await fetch('/api/patch/download');
       const data = await response.json();
       setMessage(data.message);
     } catch (error) {
-      setMessage('Failed to download champion data');
+      setMessage('Failed to download patch data');
     }
     setLoading(false);
   };
@@ -99,15 +99,15 @@ export default function AdminPage() {
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold mb-8">Admin Panel</h1>
         
-        {/* Champion Data Management */}
+        {/* Patch Data Management */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4">Champion Data Management</h2>
+          <h2 className="text-xl font-semibold mb-4">Patch Data Management</h2>
           <button
-            onClick={handleDownloadChampionData}
+            onClick={handleDownloadPatchData}
             disabled={loading}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-blue-300"
           >
-            {loading ? 'Downloading...' : 'Download Latest Champion Data'}
+            {loading ? 'Downloading...' : 'Download Latest Patch Data'}
           </button>
           {message && (
             <p className="mt-2 text-sm text-gray-600">{message}</p>
@@ -147,11 +147,11 @@ export default function AdminPage() {
 
         <div className="w-full max-w-lg flex flex-col items-center">
           <button
-            onClick={handleRefetchChampions}
+            onClick={handleRefetchPatchData}
             className="px-6 py-3 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700 mb-2"
             disabled={refetching}
           >
-            {refetching ? 'Re-fetching...' : 'Re-fetch Champion Data'}
+            {refetching ? 'Re-fetching...' : 'Re-fetch Patch Data'}
           </button>
           {refetchMsg && <div className="mt-2 text-green-600">{refetchMsg}</div>}
         </div>
