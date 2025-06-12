@@ -42,6 +42,7 @@ client_secret_*.json
 
 # Cached Data Dragon data - can be regenerated from API
 /public/patch-data/
+!public/patch-data/patch.txt
 
 # Next.js
 /.next/

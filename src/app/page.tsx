@@ -5,6 +5,7 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { determineChampionDamageType } from '../utils/championUtils';
+import { fetchPatchVersion, getPatchDataUrl } from '../utils/patchData';
 
 // Helper to shuffle an array
 function shuffle<T>(array: T[]): T[] {
@@ -25,44 +26,38 @@ function QuizChampionIcon({ onExit }: { onExit: () => void }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [log, setLog] = useState<any[]>([]);
+  const [patchVersion, setPatchVersion] = useState<string | null>(null);
 
-  // Fetch champion data on mount
+  // Fetch champion data and patch version on mount
   useEffect(() => {
-    console.log('Fetching champion data...');
-    fetch('/patch-data/15.11.1/data/en_US/championFull.json')
-      .then(res => res.json())
-      .then(data => {
-        console.log('Champion data response:', {
-          hasData: !!data,
-          hasDataData: !!data?.data,
-          dataDataKeys: data?.data ? Object.keys(data.data) : []
-        });
-
+    let isMounted = true;
+    async function fetchData() {
+      try {
+        const patch = await fetchPatchVersion();
+        if (!isMounted) return;
+        setPatchVersion(patch);
+        const championUrl = getPatchDataUrl(patch, 'data/en_US/championFull.json');
+        const res = await fetch(championUrl);
+        const data = await res.json();
+        if (!isMounted) return;
         if (!data?.data) {
           console.error('Invalid data structure received:', data);
           setLoading(false);
           return;
         }
-
         // The data structure is now { data: { [championId]: championData } }
         const champList = Object.values(data.data);
-        console.log('Processed champion list:', {
-          length: champList.length,
-          firstChampion: typeof champList[0] === 'object' && champList[0] !== null ? {
-            name: (champList[0] as any).name,
-            hasPassive: !!(champList[0] as any).passive,
-            hasSpells: !!(champList[0] as any).spells,
-            spellsLength: (champList[0] as any).spells?.length
-          } : 'unknown'
-        });
-
         setChampions(champList);
         setLoading(false);
-      })
-      .catch(error => {
-        console.error('Error fetching champion data:', error);
-        setLoading(false);
-      });
+      } catch (error) {
+        if (isMounted) {
+          console.error('Error fetching champion data:', error);
+          setLoading(false);
+        }
+      }
+    }
+    fetchData();
+    return () => { isMounted = false; };
   }, []);
 
   // Pick a new question
@@ -118,8 +113,8 @@ function QuizChampionIcon({ onExit }: { onExit: () => void }) {
   if (loading || !question) return <div className="p-8 bg-white rounded shadow text-center">Loading quiz...</div>;
 
   // Use the patch version from state for the icon URL
-  const iconUrl = question?.image?.full
-    ? `/patch-data/15.11.1/img/champion/${question.image.full}`
+  const iconUrl = question?.image?.full && patchVersion
+    ? getPatchDataUrl(patchVersion, `img/champion/${question.image.full}`)
     : null;
 
   return (
@@ -166,7 +161,7 @@ function QuizChampionIcon({ onExit }: { onExit: () => void }) {
             <div className="mb-2">
               <div className="flex items-center gap-2">
                 <img
-                  src={`/patch-data/15.11.1/img/passive/${question.passive.image.full}`}
+                  src={patchVersion ? getPatchDataUrl(patchVersion, `img/passive/${question.passive.image.full}`) : ''}
                   alt={question.passive.name}
                   className="w-8 h-8"
                 />
@@ -179,7 +174,7 @@ function QuizChampionIcon({ onExit }: { onExit: () => void }) {
               <div className="mb-2" key={spell.id}>
                 <div className="flex items-center gap-2">
                   <img
-                    src={`/patch-data/15.11.1/img/spell/${spell.image.full}`}
+                    src={patchVersion ? getPatchDataUrl(patchVersion, `img/spell/${spell.image.full}`) : ''}
                     alt={spell.name}
                     className="w-8 h-8"
                   />
