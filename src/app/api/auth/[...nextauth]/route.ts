@@ -5,12 +5,38 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import type { SessionStrategy } from "next-auth";
+import type { DefaultSession, SessionStrategy } from "next-auth";
+import type { JWT } from "next-auth/jwt";
 
 // Initialize Prisma client for database access
 const prisma = new PrismaClient();
 
 // Export NextAuth options for use in getServerSession
+/**
+ * This extends the built-in session types with the isAdmin property
+ * Note: This means that isAdmin is included in both
+ * the JWT token and the session that's sent to client
+ */
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      isAdmin: boolean;
+    } & DefaultSession["user"]
+  }
+  
+  interface User {
+    isAdmin?: boolean;
+  }
+}
+
+// Extend the JWT to include isAdmin property
+declare module "next-auth/jwt" {
+  interface JWT {
+    isAdmin?: boolean;
+  }
+}
+
 export const authOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -74,21 +100,30 @@ export const authOptions = {
   debug: process.env.NODE_ENV === 'development',
   session: {
     strategy: 'jwt' as SessionStrategy,
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
+  // Session configuration
   secret: process.env.NEXTAUTH_SECRET, // Secret for signing tokens
   callbacks: {
     // Add isAdmin to the JWT
     async jwt({ token, user }) {
+      // Only set these properties during initial sign-in when we have the user object
       if (user) {
-        token.isAdmin = user.isAdmin;
+        // Ensure user properties are added to token
+        token.isAdmin = Boolean(user.isAdmin);
+        token.id = user.id;
       }
       return token;
     },
     // Add isAdmin to the session
     async session({ session, token }) {
+      // Make sure user exists on session
       if (session.user) {
-        session.user.isAdmin = token.isAdmin;
+        // Ensure token properties are added to session user
+        session.user.id = token.sub as string;
+        session.user.isAdmin = Boolean(token.isAdmin);
       }
+      
       return session;
     },
   },
