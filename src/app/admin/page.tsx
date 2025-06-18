@@ -1,6 +1,6 @@
 'use client';
 
-import { useSession, signOut } from 'next-auth/react';
+import { useSession, getSession, signOut } from 'next-auth/react';
 import { useEffect, useState } from 'react';
 
 // Define a type for user admin data
@@ -12,7 +12,17 @@ interface UserAdmin {
 }
 
 export default function AdminPage() {
-  const { data: session, status } = useSession();
+  // Use useSession to get the first (cookie-hydrated) session
+  // and then immediately fetch the authoritative session once on mount
+  const { data: initialSession, status } = useSession();
+  const [session, setSession] = useState(initialSession);
+
+  // On first mount fetch the fresh session from the server to ensure we get isAdmin
+  useEffect(() => {
+    getSession().then((fresh) => {
+      if (fresh) setSession(fresh);
+    });
+  }, []);
   const [users, setUsers] = useState<UserAdmin[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,15 +91,38 @@ export default function AdminPage() {
     setLoading(false);
   };
 
+  // Check for admin access using either isAdmin property or role='admin'
+  // This gives us redundancy in case one property is filtered out by NextAuth
+  const isAdmin = !!session?.user?.isAdmin || session?.user?.role === 'admin';
+  
+  console.log('AdminPage - Session:', { status, session });
+  console.log('AdminPage - Admin check:', { 
+    userExists: !!session?.user,
+    email: session?.user?.email,
+    isAdmin: session?.user?.isAdmin,
+    role: session?.user?.role,
+    adminAccessGranted: isAdmin
+  });
+
   if (status === 'loading' || loading) {
     return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  if (!!session?.user && !session.user.isAdmin) {
+  // Debug component to show session information
+  const SessionDebug = () => (
+    <div className="fixed bottom-0 right-0 p-4 bg-gray-100 text-xs max-w-xs overflow-auto">
+      <pre>Status: {status}</pre>
+      <pre>Session: {JSON.stringify(session, null, 2)}</pre>
+      <pre>IsAdmin override: {JSON.stringify(isAdmin)}</pre>
+    </div>
+  );
+
+  if (!!session?.user && !isAdmin) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">
         <h1 className="text-2xl font-bold mb-4">Admin Access Required</h1>
         <button onClick={() => signOut()} className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300">Sign Out</button>
+        <SessionDebug />
       </div>
     );
   }
@@ -97,7 +130,15 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Admin Panel</h1>
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold">Admin Panel</h1>
+          <button 
+            onClick={() => signOut({ callbackUrl: '/' })} 
+            className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 transition-colors"
+          >
+            Sign Out
+          </button>
+        </div>
         
         {/* Patch Data Management */}
         <div className="bg-white rounded-lg shadow p-6 mb-8">
